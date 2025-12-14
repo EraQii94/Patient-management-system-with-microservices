@@ -7,12 +7,16 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="api-gateway" />
         <module name="patient-service" />
         <module name="billing-service-grpc" />
         <module name="test-module" />
+        <module name="Analytics-Service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="Analytics-service" target="21" />
+      <module name="analytics-service" target="21" />
       <module name="Billing-service" target="21" />
       <module name="billing-service" target="21" />
       <module name="test-module" target="17" />
@@ -20,7 +24,11 @@
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="Analytics-Service" options="-parameters" />
+      <module name="Analytics-service" options="-parameters" />
       <module name="Billing-service" options="-parameters" />
+      <module name="analytics-service" options="-parameters" />
+      <module name="api-gateway" options="-parameters" />
       <module name="billing-service" options="-parameters" />
       <module name="billing-service-grpc" options="-parameters" />
       <module name="patient-service" options="-parameters" />

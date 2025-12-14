@@ -4,7 +4,7 @@ content-type: application/json
 
 {
   "name": "john doe with billing after deployment",
-  "email": "test_billing_final_deployed1@example.com",
+  "email": "rebuilding_kafka_final@example.com",
 
   "address": "123 main street",
   "birthDate": "1995-09-09",
