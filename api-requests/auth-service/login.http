@@ -1,0 +1,14 @@
+### Login Request to Retrieve Auth Token
+POST http://localhost:4004/auth/login
+content-Type: application/json
+
+{
+  "email": "testuser@test.com",
+  "password": "password123"
+}
+
+> {%
+    console.log(response.body.token);
+    client.global.set("token", response.body.token);
+%}
+

@@ -1,0 +1,6 @@
+### Get Request to Validate Token
+
+@token = eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0dXNlckB0ZXN0LmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2NTg1MDE0MCwiZXhwIjoxNzY2MjEwMTQwfQ.FaRW8GXu1AabjBURKpsQKoeY-OTyfJQSnsBiQ92wu7w
+
+GET http://localhost:4004/auth/validate
+Authorization: Bearer {{token}}
