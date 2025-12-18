@@ -226,7 +226,7 @@ Distributed under the MIT License. See `LICENSE` file for more information.
 
 ## Contact
 
-Project Maintainer: [Your Name/Team Name]
+Project Maintainer: Abdulrahman Eraky
 Project Link: [https://github.com/your-username/patient-management-system-with-microservices](https://github.com/your-username/patient-management-system-with-microservices)
 
 ## Acknowledgments
