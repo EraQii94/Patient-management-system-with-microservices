@@ -10,6 +10,7 @@
         <module name="billing-service-grpc" />
         <module name="auth-service" />
         <module name="test-module" />
+        <module name="infrastructure" />
         <module name="api-gateway" />
         <module name="patient-service" />
         <module name="Analytics-Service" />
@@ -19,8 +20,9 @@
     <bytecodeTargetLevel>
       <module name="Analytics-service" target="21" />
       <module name="analytics-service" target="21" />
-      <module name="Billing-service" target="21" />
       <module name="billing-service" target="21" />
+      <module name="Billing-service" target="21" />
+      <module name="Infrastructure" target="21" />
       <module name="test-module" target="17" />
     </bytecodeTargetLevel>
   </component>
