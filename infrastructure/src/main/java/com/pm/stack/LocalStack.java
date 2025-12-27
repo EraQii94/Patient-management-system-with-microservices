@@ -6,6 +6,7 @@ import software.amazon.awscdk.services.ec2.*;
 import software.amazon.awscdk.services.ec2.InstanceType;
 import software.amazon.awscdk.services.ecs.*;
 import software.amazon.awscdk.services.ecs.Protocol;
+import software.amazon.awscdk.services.ecs.patterns.ApplicationLoadBalancedFargateService;
 import software.amazon.awscdk.services.logs.LogGroup;
 import software.amazon.awscdk.services.logs.RetentionDays;
 import software.amazon.awscdk.services.msk.CfnCluster;
@@ -26,7 +27,7 @@ public class LocalStack extends Stack {
     private final Cluster ecsCluster;
 
 
-    public LocalStack (final App scope, final String id, final StackProps props){
+    public LocalStack(final App scope, final String id, final StackProps props) {
 
         super(scope, id, props); // Call the parent constructor from Stack class
         this.vpc = createVpc(); // Create a VPC for the stack
@@ -51,7 +52,7 @@ public class LocalStack extends Stack {
                         "auth-service",
                         List.of(4005),
                         authServiceDb,
-                        Map.of("JWT_SECRET","p9J2R0aVxM7wLZ5Q9C4mXk8T0vFJwZ1bYcR2nH3E5sA=")
+                        Map.of("JWT_SECRET", "p9J2R0aVxM7wLZ5Q9C4mXk8T0vFJwZ1bYcR2nH3E5sA=")
                 );
 
         authService.getNode().addDependency(authHealthCheck); // Ensure health check is created before the service
@@ -91,11 +92,72 @@ public class LocalStack extends Stack {
         patientService.getNode().addDependency(billingService);
         patientService.getNode().addDependency(mskCluster);
 
-//        createApiGatewayService();
+        createApiGatewayService();
+    }
+
+    private void createApiGatewayService() {
+        FargateTaskDefinition taskDefinition = FargateTaskDefinition.Builder
+                .create(this, "ApiGatewayTaskDefinition")
+                .cpu(256)
+                .memoryLimitMiB(512)
+                .build();
+
+        ContainerDefinitionOptions containerOptions =
+                ContainerDefinitionOptions.builder()
+                        .image(ContainerImage.fromRegistry("api-gateway"))
+                        .environment(Map.of(
+                                "SPRING_PROFILES_ACTIVE", "prod",
+                                "AUTH_SERVICE_URL", "http://host.docker.internal:4005"
+                        ))
+                        .portMappings(List.of(4004).stream()
+                                .map(port -> PortMapping.builder()
+                                        .containerPort(port)
+                                        .hostPort(port)
+                                        .protocol(Protocol.TCP)
+                                        .build())
+                                .toList())
+                        .logging(LogDriver.awsLogs(AwsLogDriverProps.builder()
+                                .logGroup(LogGroup.Builder.create(this, "ApiGatewayLogGroup")
+                                        .logGroupName("/ecs/api-gateway")
+                                        .removalPolicy(RemovalPolicy.DESTROY)
+                                        .retention(RetentionDays.ONE_DAY)
+                                        .build())
+                                .streamPrefix("api-gateway")
+                                .build()))
+                        .build();
+
+        taskDefinition.addContainer("ApiGatewayContainer", containerOptions);
+
+
+        ApplicationLoadBalancedFargateService apiGateway =
+                ApplicationLoadBalancedFargateService.Builder
+                        .create(this,"APIGatewayService")
+                        .cluster(ecsCluster)
+                        .serviceName("api-gateway")
+                        .taskDefinition(taskDefinition)
+                        .desiredCount(1)
+                        .healthCheckGracePeriod(Duration.seconds(60))
+                        .build();
+
+    }
+
+    public static void main(final String[] args) {
+        // Create the app and stack
+        App app = new App(AppProps.builder().outdir("./cdk.out").build());
+        // Use BootstraplessSynthesizer for local development
+        StackProps props = StackProps.builder()
+                .synthesizer(new BootstraplessSynthesizer())
+                .build();
+
+        // Create the LocalStack instance
+        new LocalStack(app, "LocalStack", props);
+        app.synth();
+
+        System.out.println("app synthesized");
     }
 
     // Create a VPC
-    private Vpc createVpc(){
+    private Vpc createVpc() {
         return Vpc.Builder
                 .create(this, "PatientManagementVpc")
                 .vpcName("PatientManagementVpc")
@@ -104,9 +166,9 @@ public class LocalStack extends Stack {
     }
 
     // Create a PostgreSQL database instance
-    private DatabaseInstance createDatabaseInstance(String id, String dbName){
+    private DatabaseInstance createDatabaseInstance(String id, String dbName) {
         return DatabaseInstance.Builder
-                .create(this,id)
+                .create(this, id)
                 .engine(DatabaseInstanceEngine.postgres(
                         PostgresInstanceEngineProps.builder()
                                 .version(PostgresEngineVersion.VER_17_2)
@@ -121,7 +183,7 @@ public class LocalStack extends Stack {
     }
 
     // Create a Route 53 health check for the database instance
-    private CfnHealthCheck healthCheck(DatabaseInstance db, String id){
+    private CfnHealthCheck healthCheck(DatabaseInstance db, String id) {
         return CfnHealthCheck.Builder
                 .create(this, id)
                 .healthCheckConfig(CfnHealthCheck.HealthCheckConfigProperty.builder()
@@ -144,13 +206,13 @@ public class LocalStack extends Stack {
                 .numberOfBrokerNodes(1)
                 .brokerNodeGroupInfo(
                         CfnCluster.BrokerNodeGroupInfoProperty.builder()
-                        .instanceType("kafka.m5.xlarge")
-                        .clientSubnets(vpc.getPrivateSubnets()
-                                .stream()
-                                .map(ISubnet::getSubnetId)
-                                .collect(Collectors.toList()))
-                        .brokerAzDistribution("DEFAULT")
-                        .build()
+                                .instanceType("kafka.m5.xlarge")
+                                .clientSubnets(vpc.getPrivateSubnets()
+                                        .stream()
+                                        .map(ISubnet::getSubnetId)
+                                        .collect(Collectors.toList()))
+                                .brokerAzDistribution("DEFAULT")
+                                .build()
                 ) // Configure broker node group info with VPC subnets
                 .build();
     }
@@ -170,10 +232,9 @@ public class LocalStack extends Stack {
                                                 String imageName,
                                                 List<Integer> ports,
                                                 DatabaseInstance db,
-                                                Map<String, String> environmentVariables)
-    {
+                                                Map<String, String> environmentVariables) {
         FargateTaskDefinition taskDefinition = FargateTaskDefinition.Builder
-                .create(this, id +"task")
+                .create(this, id + "task")
                 .cpu(256)
                 .memoryLimitMiB(512)
                 .build();
@@ -189,24 +250,24 @@ public class LocalStack extends Stack {
                                 .build())
                         .toList())
                 .logging(LogDriver.awsLogs(AwsLogDriverProps.builder()
-                                .logGroup(LogGroup.Builder.create(this, id + "LogGroup")
+                        .logGroup(LogGroup.Builder.create(this, id + "LogGroup")
                                 .logGroupName("/ecs/" + imageName)
                                 .removalPolicy(RemovalPolicy.DESTROY)
-                                        .retention(RetentionDays.ONE_DAY)
-                                        .build())
-                                .streamPrefix(imageName)
+                                .retention(RetentionDays.ONE_DAY)
+                                .build())
+                        .streamPrefix(imageName)
                         .build())
                 );
 
         // Add environment variables for database connection
-        Map<String,String> envVars = new HashMap<>();
+        Map<String, String> envVars = new HashMap<>();
         envVars.put("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510, localhost.localstack.cloud:4511, localhost.localstack.cloud:4512");
 
-        if(environmentVariables != null){
+        if (environmentVariables != null) {
             envVars.putAll(environmentVariables);
         }
 
-        if(db != null) {
+        if (db != null) {
             envVars.put("SPRING_DATASOURCE_URL", "jdbc:postgresql://%s:%s/%s-db".formatted(
                     db.getDbInstanceEndpointAddress(),
                     db.getDbInstanceEndpointPort(),
@@ -230,23 +291,6 @@ public class LocalStack extends Stack {
                 .taskDefinition(taskDefinition) // Set the task definition
                 .assignPublicIp(false) // Do not assign public IP
                 .build();
-    }
-
-
-
-    public static void main(final String[] args) {
-        // Create the app and stack
-        App app = new App(AppProps.builder().outdir("./cdk.out").build());
-        // Use BootstraplessSynthesizer for local development
-        StackProps props = StackProps.builder()
-                .synthesizer(new BootstraplessSynthesizer())
-                .build();
-
-        // Create the LocalStack instance
-        new LocalStack(app, "LocalStack", props);
-        app.synth();
-
-        System.out.println("app synthesized");
     }
 
 }
